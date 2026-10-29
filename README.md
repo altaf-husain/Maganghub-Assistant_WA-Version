@@ -1,273 +1,263 @@
 # MagangHub Assistant (Versi Pengingat WhatsApp)
 
-Ekstensi Chrome yang membantu peserta magang mengisi **laporan harian MagangHub**
-(monev.maganghub.kemnaker.go.id) dengan bantuan AI, dan **mengingatkan lewat WhatsApp** kalau kamu lupa absen.
+Ekstensi Chrome (Manifest V3) untuk membantu peserta magang mengisi **laporan harian MagangHub**
+(monev.maganghub.kemnaker.go.id) dengan **Google Gemini API**, ditambah **pengingat WhatsApp** lewat
+**Fonnte API** memakai device milik sendiri.
 
-- ✍️ **Menulis laporan dengan AI.** Tulis kegiatanmu secara singkat. AI (Google Gemini) akan menuliskan kolom
-  **Aktivitas**, **Pembelajaran**, dan **Kendala**, lalu mengisinya langsung ke form.
-- ⏰ **Pengingat di laptop.** Notifikasi muncul pada jam yang kamu pilih, kalau kamu belum mengisi laporan.
-- 💬 **Pengingat lewat WhatsApp.** Pesan dikirim dari nomor bot **milikmu sendiri** lewat layanan
-  [Fonnte](https://fonnte.com).
+- ✍️ **Auto-fill laporan dengan AI.** Gemini API menyusun field **Uraian aktivitas**, **Pembelajaran**, dan
+  **Kendala**, lalu content script mengisinya ke form MagangHub.
+- ⏰ **Alarm Otomatis.** Notifikasi Chrome pada jam dan hari yang diatur, jika belum absen.
+- 💬 **Pengingat WhatsApp.** Pesan dikirim lewat Fonnte API dari **device (nomor bot) milikmu** ke nomor penerima.
+  Bisa dikirim langsung dari ekstensi, atau dari **Google Apps Script Web App** milikmu sendiri agar tetap jalan
+  walau laptop mati.
 
-Semua pengaturannya kamu lakukan sendiri. Tidak ada server, akun, atau nomor dari pembuat ekstensi.
+Semua konfigurasi dilakukan sendiri oleh pengguna: Gemini API key, akun & device Fonnte, dan (opsional) deployment
+Apps Script. Tidak ada backend, token, atau nomor dari pembuat ekstensi.
 
-> ⚠️ Ini proyek pribadi, **bukan** aplikasi resmi Kemnaker/MagangHub. Selalu baca ulang laporan buatan AI
-> sebelum dikirim.
+> ⚠️ Proyek pribadi, **bukan** aplikasi resmi Kemnaker/MagangHub. Fonnte juga bukan WhatsApp Business API resmi;
+> gunakan secukupnya untuk pengingat pribadi.
 
-> Tidak butuh WhatsApp? Pakai **versi biasa** di folder utama repositori ini. Pemasangannya lebih mudah.
+> Tidak butuh WhatsApp? Pakai **versi standar** di root repositori.
 
 ---
 
-## Gambaran singkat
+## Arsitektur
 
-Pengingat WhatsApp butuh **dua nomor WhatsApp**:
+Pengingat WhatsApp punya dua mode:
 
-| Nomor | Fungsinya |
+| Mode | Pengirim pesan | Kelebihan | Kekurangan |
+|---|---|---|---|
+| **Lokal** (default) | Service worker ekstensi memanggil `api.fonnte.com/send` saat alarm `wa_HH:MM` berbunyi | Tanpa setup tambahan | Hanya jalan saat Chrome berjalan |
+| **Server** (opsional) | Google Apps Script dengan time-driven trigger tiap 15 menit | Jalan walau laptop mati; mendukung balasan WA via webhook | Perlu deploy Web App sendiri |
+
+Dibutuhkan **dua nomor WhatsApp**:
+
+| Nomor | Peran |
 |---|---|
-| **Nomor bot** | Pengirim pesan pengingat. Disambungkan ke Fonnte. Pakai nomor cadangan, **jangan nomor utamamu**. |
-| **Nomor penerima** | Nomor WhatsApp-mu sehari-hari, yang menerima pengingat. |
+| **Nomor device (bot)** | Ditautkan ke Fonnte sebagai *device*; menjadi pengirim pesan. Gunakan nomor cadangan. |
+| **Nomor penerima (target)** | Nomor WhatsApp yang menerima pengingat. Sebaiknya berbeda dari nomor device, karena pesan ke diri sendiri tidak memunculkan notifikasi. |
 
-Ada dua cara pengiriman. Pilih yang sesuai:
+Alur mode server:
 
-| Cara | Kelebihan | Kekurangan |
-|---|---|---|
-| **Dari Chrome** (bawaan) | Tidak perlu pasang apa-apa lagi. | Pesan hanya terkirim saat laptop menyala dan Chrome terbuka. |
-| **Dari server** (opsional) | Pesan tetap terkirim **walau laptop mati**. Bisa membalas *sudah* di WhatsApp. | Perlu memasang server gratis di Google Apps Script (±10 menit, sekali saja). |
+```
+Ekstensi ──(GET ?action=connect&token&phone)──► Apps Script Web App ──► simpan CONFIG di Script Properties
+                                                   │                      + buat key akses + pasang trigger
+Ekstensi ──(GET ?action=settings|done|undo|status|test&key)──►│
+                                                   ▼
+                                       trigger checkReminder (15 menit)
+                                                   │ belum absen & lewat jam
+                                                   ▼
+                                       api.fonnte.com/send ──► WhatsApp penerima
+                                                   ▲
+Balasan WA ("sudah"/"batal"/"status") ──► Fonnte webhook ──► doPost Web App
+```
 
-Kamu bisa mulai dengan cara **dari Chrome** dulu, lalu menambah server kapan saja.
+## Struktur folder
 
----
+```
+versi-whatsapp-fonnte/
+├── manifest.json            # Manifest V3; host_permissions: Gemini, Fonnte, Apps Script
+├── background.js            # Service worker: alarm, status absen, Fonnte API, sinkron ke server
+├── content.js               # Content script di halaman MagangHub
+├── popup.html / popup.js    # UI popup: Gemini, Alarm Otomatis, wizard setup Fonnte
+├── styles.css
+├── icon.png
+└── server-pengingat/
+    └── Code.gs              # Google Apps Script (opsional), server pengingat pribadi
+```
 
-## Yang perlu disiapkan
+## Permissions
 
-- Laptop/PC dengan **Google Chrome** (Edge atau Brave juga bisa)
-- **Akun Google**, untuk membuat kunci AI gratis (dan server, jika dipakai)
-- **Akun MagangHub**
-- **Nomor WhatsApp cadangan** untuk bot, di HP yang bisa membuka WhatsApp
-- **Nomor WhatsApp-mu** untuk menerima pengingat
-
----
-
-## Bagian 1: Pasang ekstensi
-
-### 1. Unduh ekstensi
-
-1. Di halaman GitHub repositori ini, klik tombol hijau **Code**, lalu pilih **Download ZIP**.
-2. Klik kanan file ZIP yang terunduh, lalu pilih **Extract All**.
-3. Buka hasil ekstraknya. Pindahkan folder **versi-whatsapp-fonnte** ke tempat yang aman, misalnya **Documents**.
-
-⚠️ Jangan hapus atau pindahkan folder ini setelah dipasang. Chrome membaca ekstensi langsung dari folder ini.
-
-### 2. Pasang di Chrome
-
-1. Buka Chrome, ketik **chrome://extensions** di kolom alamat, lalu tekan Enter.
-2. Nyalakan **Developer mode** di pojok kanan atas.
-3. Klik **Load unpacked**.
-4. Pilih folder **versi-whatsapp-fonnte**, lalu klik **Select Folder**.
-5. Klik ikon puzzle 🧩 di kanan atas Chrome, lalu klik pin 📌 di samping **MagangHub Assistant (WhatsApp)**.
-
-💡 Kalau muncul *"Manifest file is missing"*, berarti folder yang dipilih salah. Pilih folder yang di dalamnya
-ada file **manifest.json**.
-
-### 3. Buat kunci AI (gratis)
-
-1. Buka **https://aistudio.google.com/apikey** dan login dengan akun Google.
-2. Klik **Create API key**, lalu salin kuncinya.
-3. Klik ikon ekstensi di Chrome, lalu tempel kunci di kolom **Gemini API Key**.
-4. Klik **Simpan & Test Koneksi**. Kalau muncul *"Koneksi sukses!"*, berarti berhasil.
-
-🔒 Jangan berikan kunci ini ke orang lain.
-
-### 4. Atur jam pengingat di laptop
-
-1. Di bagian **Alarm Otomatis**, pilih zona waktumu (**WIB / WITA / WIT**).
-2. Isi jam pengingat. Mau lebih dari satu jam? Klik **+ Jam**.
-3. Centang hari kerjamu (misalnya Sen sampai Jum).
-4. Klik **Simpan**.
-
-Hari dan zona waktu di sini juga dipakai untuk pengingat WhatsApp.
-
----
-
-## Bagian 2: Siapkan akun Fonnte
-
-Fonnte adalah layanan yang membuat nomor WhatsApp bisa mengirim pesan otomatis.
-
-1. Buka **https://fonnte.com**, lalu daftar dan login.
-2. Buka menu **Device**, lalu klik **Add Device**.
-3. Isi nama bebas (misalnya *Pengingat Magang*) dan **nomor bot**, lalu simpan.
-4. Pada device tersebut, klik **Connect**. Akan muncul kode QR.
-5. Di HP nomor bot, buka WhatsApp → **⋮** → **Perangkat tertaut** → **Tautkan perangkat**, lalu scan kode QR tadi.
-6. Setelah statusnya **connect**, salin **Token** device tersebut.
-
-💡 Buka WhatsApp di HP nomor bot sesekali dengan internet aktif, supaya sambungannya tidak putus.
-
-ℹ️ Cek kuota dan batasan paketmu di dashboard Fonnte. Fonnte bukan layanan resmi WhatsApp, jadi gunakan secukupnya
-untuk pengingat pribadi.
-
----
-
-## Bagian 3: Hubungkan WhatsApp di ekstensi
-
-1. Klik ikon ekstensi. Di bagian **Pengingat WhatsApp**:
-2. **Langkah 1 dari 2:** tempel **Token** dari Fonnte, lalu klik **Cek Token**.
-   Ekstensi akan menampilkan nomor bot dan apakah sudah terhubung.
-3. **Langkah 2 dari 2:** isi **nomor WhatsApp-mu** (penerima, contoh 081234567890),
-   lalu klik **Simpan & Kirim Tes**.
-4. Cek WhatsApp-mu. Seharusnya ada pesan tes dari nomor bot. **Simpan nomor bot di kontakmu** supaya pesannya
-   tidak masuk spam.
-5. Klik **Edit** untuk mengatur jam pengingat WhatsApp, lalu klik **Simpan**.
-
-Selesai! Pengingat WhatsApp sudah aktif dengan cara **dari Chrome**.
-
-Kalau ingin pengingat tetap terkirim walau laptop mati, lanjut ke **Bagian 4**.
-
----
-
-## Bagian 4 (opsional): Pasang server supaya pengingat tetap jalan walau laptop mati
-
-Server ini gratis, berjalan di akun Google-mu sendiri, dan hanya dipakai olehmu.
-
-### 1. Buat project Apps Script
-
-1. Buka **https://script.google.com**, lalu klik **New project**.
-2. Hapus semua isi file `Code.gs` di editor.
-3. Buka file **server-pengingat/Code.gs** dari folder ekstensi (bisa dengan Notepad), salin seluruh isinya,
-   lalu tempel ke editor.
-4. Simpan dengan **Ctrl+S**.
-
-### 2. Jalankan sekali untuk memberi izin
-
-1. Di menu atas editor, pilih fungsi **setup**, lalu klik **Run**.
-2. Saat diminta izin: klik **Review permissions** → pilih akunmu → **Advanced** → **Go to … (unsafe)** → **Allow**.
-   Peringatan ini normal karena skrip dibuat sendiri, bukan dari Google.
-
-### 3. Jadikan Web App
-
-1. Klik **Deploy** → **New deployment**.
-2. Klik ⚙ di samping *Select type*, lalu pilih **Web app**.
-3. Isi **Execute as:** *Me*, dan **Who has access:** *Anyone*.
-4. Klik **Deploy**, lalu salin **Web app URL** (berakhiran `/exec`).
-
-🔒 Jangan bagikan URL ini ke orang lain.
-
-### 4. Tempel alamat server di ekstensi
-
-1. Klik ikon ekstensi. Di bagian **Pengingat WhatsApp**, klik **Edit**.
-2. Tempel URL tadi ke kolom **Alamat server**, lalu klik **Simpan**.
-3. Kamu akan menerima pesan WhatsApp *"Server pengingat MagangHub terhubung"*.
-
-Sekarang tulisan di ekstensi berubah menjadi **Dikirim dari server (tetap jalan walau laptop mati)**.
-
-### 5. Aktifkan balasan WhatsApp (opsional)
-
-Supaya kamu bisa membalas pesan pengingat dengan **sudah**:
-
-1. Di Fonnte, buka **Device**, lalu klik **Edit** pada device bot.
-2. Tempel **Web app URL** yang sama ke kolom **Webhook**, lalu simpan.
-
-| Balas dengan | Artinya |
+| Permission | Dipakai untuk |
 |---|---|
-| **sudah** | Aku sudah absen. Pengingat hari ini berhenti. |
-| **batal** | Ternyata aku belum absen. |
-| **status** | Cek apakah hari ini sudah tercatat absen. |
-| **bantuan** | Tampilkan daftar perintah. |
-
-Ingin berhenti memakai server? Klik **Edit**, kosongkan kolom **Alamat server**, lalu **Simpan**.
-Pengingat akan kembali dikirim dari Chrome.
-
----
-
-## Cara mengisi laporan setiap hari
-
-1. Buka MagangHub dan masuk ke **halaman form laporan harian**.
-2. Klik ikon ekstensi.
-3. Tulis kegiatanmu hari ini secara singkat.
-4. Klik tombol kuning **Buat & Isi Laporan dengan AI**, lalu tunggu sebentar.
-5. **Baca dulu hasilnya** di form, ubah kalau perlu, lalu klik tombol kirim di MagangHub.
-
-**Pilihan cara menulis** (menu *Mode Pengisian*):
-
-- **Ketik 1 Poin:** cukup tulis kegiatanmu. AI yang memikirkan pembelajaran dan kendalanya.
-- **Ketik 3 Poin:** tulis sendiri kegiatan, pembelajaran, dan kendala secara singkat. AI yang merapikannya.
-
-**Perlu diketahui:**
-
-- Kolom yang sudah ada isinya **tidak akan ditimpa**.
-- Setelah laporan diisi, ekstensi menandai kamu **sudah absen** hari itu, jadi pengingat di laptop dan WhatsApp
-  berhenti. Kalau ternyata belum terkirim, klik **Batalkan**. Kalau kamu mengisi laporan sendiri tanpa AI,
-  klik **Tandai sudah absen**.
-- Prosesnya terasa macet? Klik tombol **⟳** di bagian atas, lalu coba lagi.
+| `storage` | Menyimpan API key, token Fonnte, nomor, jadwal, dan status di `chrome.storage.local` |
+| `activeTab`, `scripting` | Menyuntikkan ulang `content.js` ke tab MagangHub |
+| `alarms`, `notifications` | Alarm harian (`alarm_HH:MM`, `wa_HH:MM`) dan notifikasi |
+| `https://generativelanguage.googleapis.com/*` | Gemini API |
+| `https://api.fonnte.com/*` | Fonnte API (`/device`, `/send`) |
+| `https://script.google.com/*`, `https://script.googleusercontent.com/*` | Request ke Apps Script Web App (redirect ke googleusercontent) |
 
 ---
 
-## Kalau ada masalah
+## Prasyarat
 
-**Muncul peringatan "Disable developer mode extensions" setiap membuka Chrome**
-Ini normal untuk ekstensi yang dipasang dari folder. Tutup saja, **jangan** klik *Disable*.
-
-**"API key Gemini tidak valid" atau "Koneksi gagal"**
-Salin ulang kuncimu dan pastikan tidak ada spasi. Kalau masih gagal, buat kunci baru.
-
-**"Buka halaman form laporan MagangHub dahulu"**
-Buka halaman form laporan harian di MagangHub, lalu klik ikon ekstensi dari halaman itu.
-
-**"Kuota habis" atau "Semua model AI sedang gagal"**
-Batas gratis Gemini sedang habis atau servernya sibuk. Tunggu beberapa menit, klik **⟳**, lalu coba lagi.
-
-**"Fonnte menolak: token tidak valid"**
-Salin ulang **Token** dari menu Device di Fonnte. Pastikan yang disalin token **device**, bukan token akun.
-
-**"Nomor bot belum terhubung di Fonnte"**
-Buka Fonnte → Device → **Connect**, lalu scan ulang kode QR dari WhatsApp nomor bot.
-
-**Pesan tes masuk, tapi tidak ada bunyi notifikasi**
-Kemungkinan nomor penerima sama dengan nomor bot (pesan ke diri sendiri). Pakai dua nomor yang berbeda.
-
-**Pengingat WhatsApp tidak terkirim (tanpa server)**
-Pengingat dari Chrome hanya terkirim saat laptop menyala dan Chrome terbuka. Pasang server (Bagian 4) supaya
-tetap jalan walau laptop mati.
-
-**"Alamat server harus URL Web App ... /exec" atau "Server tidak membalas dengan benar"**
-Pastikan URL yang ditempel berakhiran `/exec` dan **Who has access** diatur ke *Anyone* (Bagian 4 langkah 3).
-
-**"Server ini sudah terhubung dengan akun Fonnte lain"**
-Server-mu pernah dihubungkan dengan token lain. Di Apps Script, buka ⚙ **Project Settings** →
-**Script Properties**, hapus property **CONFIG**, lalu simpan alamat server lagi di ekstensi.
-
-**Pengingat dari server tidak pernah datang**
-Di editor Apps Script, jalankan lagi fungsi **setup**, lalu cek menu **Executions** untuk melihat error.
-
-**Balasan "sudah" tidak dibalas bot**
-Pastikan **Webhook** di Fonnte sudah diisi URL server (Bagian 4 langkah 5).
-
-**Mengubah isi Code.gs (misalnya setelah update)**
-Setelah menyimpan, klik **Deploy** → **Manage deployments** → ✏ → **Version: New version** → **Deploy**.
-Alamat server tidak berubah.
+- Google Chrome atau browser berbasis Chromium (Edge, Brave)
+- Akun Google: untuk **Gemini API key** dan (opsional) **Google Apps Script**
+- Akun MagangHub
+- Akun **[Fonnte](https://fonnte.com)**
+- Nomor WhatsApp cadangan untuk device Fonnte, dan nomor WhatsApp penerima
 
 ---
 
-## Memperbarui ke versi terbaru
+## 1. Instalasi ekstensi
 
-1. Unduh lagi ZIP terbaru dari halaman GitHub ini.
-2. Timpa isi folder ekstensi yang lama dengan isi folder **versi-whatsapp-fonnte** yang baru.
-3. Buka **chrome://extensions**, lalu klik ikon **⟳** pada MagangHub Assistant (WhatsApp).
-4. Jika memakai server dan **Code.gs** ikut berubah, perbarui juga server (lihat masalah terakhir di atas).
+### 1.1 Download source
 
-Pengaturanmu tidak akan hilang.
+- Klik **Code → Download ZIP** lalu extract, atau `git clone <url-repositori-ini>`.
+- Simpan folder `versi-whatsapp-fonnte/` di lokasi permanen. Ekstensi *unpacked* dibaca langsung dari folder ini.
 
-## Menghapus ekstensi
+### 1.2 Load unpacked extension
 
-1. Di ekstensi, klik **Edit** → **Atur ulang dari awal** untuk menghentikan pengingat WhatsApp dan memutus server.
-2. Buka **chrome://extensions**, klik **Remove**, lalu hapus foldernya.
-3. Jika memakai server, hapus juga project-nya di **https://script.google.com**.
+1. Buka `chrome://extensions` (Edge: `edge://extensions`).
+2. Aktifkan **Developer mode**.
+3. Klik **Load unpacked**, lalu pilih folder `versi-whatsapp-fonnte/` (yang berisi `manifest.json`).
+4. Pin ekstensi **MagangHub Assistant (WhatsApp)** lewat ikon 🧩.
+
+### 1.3 Konfigurasi Gemini API key
+
+1. Buat API key di **https://aistudio.google.com/apikey**.
+2. Di popup, buka **⚙ Pengaturan Gemini API**, tempel di **Gemini API Key**, lalu klik **Simpan & Test Koneksi**.
+
+### 1.4 Atur Alarm Otomatis
+
+1. Pilih zona waktu (**WIB / WITA / WIT**), tambah jam (**+ Jam**), centang hari aktif, lalu **Simpan**.
+2. **Hari** dan **zona waktu** ini juga dipakai untuk pengingat WhatsApp (jika belum ada jadwal: Senin–Jumat).
+
+---
+
+## 2. Setup device Fonnte
+
+1. Daftar dan login di **https://fonnte.com**.
+2. Buka menu **Device** → **Add Device**. Isi nama device dan **nomor device (bot)**.
+3. Klik **Connect**, lalu scan QR dari WhatsApp nomor device: **⋮ → Perangkat tertaut → Tautkan perangkat**.
+4. Pastikan status device **connect**, lalu salin **token device**.
+
+Catatan:
+
+- Yang dipakai adalah **token device**, bukan token akun.
+- Fonnte memakai sesi *linked device* WhatsApp. Buka WhatsApp di HP nomor device sesekali agar sesi tidak terputus.
+- Cek kuota dan fitur paket (misalnya webhook) di dashboard Fonnte.
+
+---
+
+## 3. Hubungkan Fonnte di ekstensi (mode lokal)
+
+Di popup, bagian **Pengingat WhatsApp**:
+
+1. **Langkah 1 dari 2:** tempel token device, klik **Cek Token**.
+   Ekstensi memanggil `POST api.fonnte.com/device` untuk memvalidasi token dan menampilkan nomor device beserta
+   status koneksinya.
+2. **Langkah 2 dari 2:** isi **nomor penerima** (format `08…` / `62…` / `+62…`, dinormalisasi ke `62…`),
+   klik **Simpan & Kirim Tes**. Ekstensi mengirim pesan tes lewat `POST api.fonnte.com/send`; konfigurasi
+   hanya disimpan jika pengiriman berhasil.
+3. Klik **Edit** untuk mengatur jam pengingat WhatsApp, lalu **Simpan**.
+
+Pada mode lokal, service worker memasang alarm `wa_HH:MM` per jam pengingat. Saat alarm berbunyi, jika hari aktif
+dan status belum absen, pesan dikirim langsung ke Fonnte API.
+
+---
+
+## 4. (Opsional) Deploy server Google Apps Script
+
+Server bersifat **single-user**: satu deployment untuk satu pengguna. Token Fonnte, nomor penerima, dan jadwal
+dikirim oleh ekstensi dan disimpan di **Script Properties** (key `CONFIG`). `Code.gs` tidak perlu diedit.
+
+### 4.1 Buat project
+
+1. Buka **https://script.google.com** → **New project**.
+2. Ganti isi `Code.gs` dengan isi [`server-pengingat/Code.gs`](server-pengingat/Code.gs), lalu simpan.
+
+### 4.2 Otorisasi
+
+1. Pilih fungsi `setup` di toolbar editor, lalu klik **Run**.
+2. Berikan izin: **Review permissions → Advanced → Go to … (unsafe) → Allow**
+   (normal untuk script yang belum diverifikasi Google). Scope yang diminta: `UrlFetchApp` (memanggil Fonnte),
+   `ScriptApp` (membuat trigger), dan `PropertiesService`.
+
+### 4.3 Deploy sebagai Web App
+
+1. **Deploy → New deployment** → type **Web app**.
+2. **Execute as:** *Me*, **Who has access:** *Anyone*.
+3. **Deploy**, lalu salin **Web App URL** (berakhiran `/exec`).
+
+Akses *Anyone* diperlukan agar ekstensi bisa memanggil Web App tanpa login Google. Setelah `connect`, semua
+request lain wajib membawa `key` acak yang dibuat server; `connect` ulang hanya diterima dengan token Fonnte yang
+sama. Tetap jangan publikasikan Web App URL.
+
+### 4.4 Hubungkan ekstensi ke server
+
+1. Di popup, **Pengingat WhatsApp → Edit**, isi **Alamat server** dengan Web App URL, lalu **Simpan**.
+2. Ekstensi memanggil `?action=connect`, server mengirim pesan konfirmasi ke WhatsApp penerima, menyimpan
+   `CONFIG`, dan memasang time-driven trigger `checkReminder` (tiap 15 menit).
+3. Ekstensi lalu mengirim jam, hari, dan zona waktu (`?action=settings`). Alarm lokal `wa_HH:MM` dilepas karena
+   pengiriman diambil alih server.
+
+Untuk kembali ke mode lokal, kosongkan **Alamat server** lalu **Simpan** (ekstensi memanggil `?action=disconnect`,
+server menghapus `CONFIG` dan trigger).
+
+### 4.5 (Opsional) Webhook untuk balasan WhatsApp
+
+Di Fonnte, **Device → Edit**, isi field **Webhook** dengan Web App URL yang sama. Pesan masuk akan diteruskan
+ke `doPost`, dan hanya pesan dari nomor penerima yang diproses:
+
+| Balasan | Aksi |
+|---|---|
+| `sudah` | Set `doneDate` hari ini; pengingat hari ini berhenti |
+| `batal` | Reset status ke belum absen |
+| `status` | Balas status absen hari ini |
+| `bantuan` | Balas daftar perintah |
+
+Status absen dari webhook disinkronkan ke ekstensi lewat `?action=status` saat popup dibuka atau alarm berbunyi.
+
+### 4.6 Update `Code.gs`
+
+Setelah mengubah kode: **Deploy → Manage deployments → ✏ → Version: New version → Deploy**.
+Web App URL tetap sama.
+
+---
+
+## Penggunaan harian
+
+1. Buka halaman form laporan harian di MagangHub.
+2. Buka popup, pilih **Mode Pengisian** (1 poin / 3 poin), tulis poin aktivitas.
+3. Klik **Buat & Isi Laporan dengan AI**, review hasil di form, lalu submit.
+
+Setelah form terisi (atau tombol *Kirim/Simpan* diklik), status absen menjadi *Sudah*: notifikasi Chrome dan
+pengingat WhatsApp hari itu berhenti. Pada mode server, status juga dikirim ke server (`?action=done`).
+Koreksi manual lewat **Batalkan** / **Tandai sudah absen**.
+
+---
+
+## Troubleshooting
+
+| Gejala | Penyebab / solusi |
+|---|---|
+| Banner *"Disable developer mode extensions"* | Normal untuk ekstensi unpacked. Tutup saja. |
+| *"API key Gemini tidak valid"* / HTTP 400/401/403 | API key salah. Generate ulang di AI Studio. |
+| *"Kuota model … habis/sibuk"* | Rate limit / quota free tier Gemini (HTTP 429) atau 5xx. Tunggu, lalu klik ⟳. |
+| *"Fonnte menolak: …"* saat Cek Token | Token salah atau yang dipakai token akun. Gunakan **token device**. |
+| *"Nomor bot belum terhubung"* | `device_status` bukan `connect`. Scan ulang QR di Fonnte. |
+| Pesan tes masuk tanpa notifikasi | Nomor penerima sama dengan nomor device (pesan ke diri sendiri). |
+| Pengingat mode lokal tidak terkirim | Chrome tidak berjalan pada jam pengingat. Gunakan mode server. |
+| *"Alamat server harus URL Web App … /exec"* | URL bukan Web App URL. Salin dari **Deploy → Manage deployments**. |
+| *"Server tidak membalas dengan benar"* | Akses Web App bukan *Anyone*, atau deployment belum dibuat/diupdate. |
+| *"Server ini sudah terhubung dengan akun Fonnte lain"* | `CONFIG` berisi token lain. Hapus property `CONFIG` di **Project Settings → Script Properties**, lalu simpan ulang alamat server. |
+| *"Ekstensi belum terhubung ke server ini"* | `key` tidak cocok (misalnya `CONFIG` dihapus). Kosongkan alamat server, simpan, lalu isi lagi. |
+| Server tidak pernah mengirim pengingat | Jalankan `setup` lagi untuk memasang trigger, lalu cek **Executions** di Apps Script. |
+| Balasan `sudah` tidak diproses | Webhook Fonnte belum diisi, paket tidak mendukung webhook, atau pengirim bukan nomor penerima. Cek log `doPost` di **Executions**. |
+
+Debugging ekstensi: `chrome://extensions` → **Service worker** (log background), atau klik kanan popup → **Inspect**.
+
+---
+
+## Update
+
+1. `git pull` atau download ulang ZIP dan timpa isi `versi-whatsapp-fonnte/`.
+2. **Reload** ekstensi di `chrome://extensions`.
+3. Jika `server-pengingat/Code.gs` berubah dan kamu memakai mode server, update deployment (lihat 4.6).
+
+## Uninstall
+
+1. Di popup, **Pengingat WhatsApp → Edit → Atur ulang dari awal** (memanggil `disconnect` jika memakai server).
+2. **Remove** ekstensi di `chrome://extensions`.
+3. Jika memakai server, hapus project Apps Script (otomatis menghapus trigger dan Script Properties).
 
 ---
 
 ## Privasi
 
-- Kunci AI, token Fonnte, nomor WhatsApp, dan jam pengingat disimpan **di browser-mu**.
-- Tulisan kegiatanmu dikirim ke **Google Gemini** memakai kunci AI milikmu.
-- Pesan WhatsApp dikirim lewat **Fonnte** memakai token milikmu.
-- Jika memakai server, token Fonnte, nomor penerima, jadwal, dan status absen juga disimpan di
-  **akun Google Apps Script milikmu sendiri**. Pembuat ekstensi tidak menerima data apa pun.
+- Gemini API key, token Fonnte, nomor, jadwal, dan status absen disimpan di `chrome.storage.local`.
+- Teks poin aktivitas dikirim ke **Gemini API** memakai API key milik pengguna.
+- Pesan WhatsApp dikirim lewat **Fonnte API** memakai token device milik pengguna.
+- Pada mode server, token Fonnte, nomor penerima, jadwal, dan status absen juga disimpan di **Script Properties
+  project Apps Script milik pengguna sendiri**. Pembuat ekstensi tidak menerima data apa pun.
