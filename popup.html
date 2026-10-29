@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="header">
+    <h3>MagangHub Assistant</h3>
+  </div>
+
+  <div class="container">
+    <details id="apiSettings" class="settings-panel">
+    <summary>⚙ Pengaturan Gemini API <button id="refreshBtn" class="refresh-btn" type="button" title="Refresh: batalkan proses yang macet">⟳</button><span id="apiSettingsState" class="settings-state"></span></summary>
+    <label class="label-with-help">
+      Gemini API Key:
+      <button id="apiHelpBtn" class="help-icon" type="button" title="Cara mendapatkan API Key Gemini">?</button>
+    </label>
+    <div id="apiHelpBox" class="help-box" style="display: none;">
+      <b>Cara mendapatkan API Key Gemini (gratis):</b>
+      <ol>
+        <li>Buka <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> dan login dengan akun Google.</li>
+        <li>Klik <b>Create API key</b> (Buat kunci API).</li>
+        <li>Salin kunci yang muncul.</li>
+        <li>Tempel di kolom di bawah, lalu klik <b>Simpan & Test Koneksi</b>.</li>
+      </ol>
+      Jangan bagikan API key Anda ke orang lain.
+    </div>
+    <input type="password" id="apiKey" placeholder="API Key dari aistudio.google.com/apikey">
+
+    <div class="button-group">
+      <button id="saveBtn" class="btn-primary">Simpan & Test Koneksi</button>
+    </div>
+    </details>
+
+    <div class="status-box" id="statusBox">
+      Status: Menunggu konfigurasi...
+    </div>
+    <div id="progressWrap" class="progress-wrap" style="display: none;">
+      <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
+      <div id="progressText" class="progress-text"></div>
+    </div>
+
+    <div class="input-mode-group" style="margin-top: 15px;">
+      <label>Mode Pengisian:</label>
+      <select id="inputMode" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;">
+        <option value="custom1" selected>Ketik 1 Poin di Sini (AI buat 3 Form)</option>
+        <option value="custom3">Ketik 3 Poin di Sini (AI kembangkan)</option>
+      </select>
+
+      <div id="customInputs" style="display: block;">
+        <textarea id="valActivity" rows="1" placeholder="Tulis 1 aktivitas singkat..."></textarea>
+        <textarea id="valLesson" rows="1" placeholder="Poin pelajaran..." style="display: none;"></textarea>
+        <textarea id="valObstacle" rows="1" placeholder="Poin kendala..." style="display: none;"></textarea>
+      </div>
+
+      <div class="action-group">
+        <button id="forceFillBtn" class="btn-secondary" disabled>Buat & Isi Laporan dengan AI</button>
+      </div>
+    </div>
+    <hr>
+   <!-- FITUR PENGINGAT ABSEN (DIATUR USER) -->
+    <div class="reminder-group">
+      <div class="alarm-header">
+        <label class="alarm-title">Alarm Otomatis</label>
+        <select id="alarmTimezone" title="Zona waktu">
+          <option value="WIB">WIB</option>
+          <option value="WITA">WITA</option>
+          <option value="WIT">WIT</option>
+        </select>
+      </div>
+      <div id="alarmView" class="alarm-view"></div>
+      <div class="absen-status">
+        <span id="absenText">Absen hari ini: -</span>
+        <button id="absenToggleBtn" class="link-btn" type="button"></button>
+      </div>
+      <div id="alarmEdit">
+        <div id="alarmTimes" class="alarm-times">
+          <button id="addTimeBtn" class="alarm-add-time">+ Jam</button>
+        </div>
+        <div id="alarmDays" class="alarm-days"></div>
+      </div>
+      <button id="alarmToggleBtn" class="btn-small btn-primary">Simpan</button>
+    </div>
+
+    <!-- PENGINGAT WHATSAPP (lewat akun Fonnte milik sendiri) -->
+    <div class="reminder-group wa-group">
+      <div class="alarm-header">
+        <label class="label-with-help alarm-title">
+          Pengingat WhatsApp
+          <button id="waHelpBtn" class="help-icon" type="button" title="Cara mengatur pengingat WhatsApp">?</button>
+        </label>
+      </div>
+      <div id="waHelpBox" class="help-box" style="display: none;">
+        Pengingat dikirim dari <b>nomor bot milikmu sendiri</b> lewat <a href="https://fonnte.com" target="_blank">Fonnte</a>
+        ke nomor WhatsApp-mu, jika sampai jam yang diatur kamu belum absen. Hari &amp; zona waktunya mengikuti <b>Alarm Otomatis</b>.
+        <ol>
+          <li>Daftar di <a href="https://fonnte.com" target="_blank">fonnte.com</a>, buka menu <b>Device</b>, tambahkan nomor bot, klik <b>Connect</b>, lalu scan QR dari WhatsApp nomor bot.</li>
+          <li>Salin <b>Token</b> device, tempel di bawah, lalu klik <b>Cek Token</b>.</li>
+          <li>Isi nomor WhatsApp penerima (sebaiknya berbeda dari nomor bot), lalu klik <b>Simpan &amp; Kirim Tes</b>.</li>
+        </ol>
+        Tanpa server, pengingat hanya terkirim saat Chrome terbuka. Agar tetap jalan walau laptop mati, isi <b>alamat server</b> (lihat README).
+      </div>
+
+      <div id="waStepToken" class="wa-edit" style="display: none;">
+        <div class="wa-step-title">Langkah 1 dari 2: Hubungkan akun Fonnte</div>
+        <input type="password" id="waToken" placeholder="Token device dari fonnte.com">
+        <button id="waCheckTokenBtn" class="btn-small btn-primary">Cek Token</button>
+      </div>
+
+      <div id="waStepPhone" class="wa-edit" style="display: none;">
+        <div class="wa-step-title">Langkah 2 dari 2: Nomor penerima pengingat</div>
+        <div id="waDeviceInfo" class="alarm-view"></div>
+        <input type="text" id="waPhone" placeholder="Nomor WhatsApp kamu, contoh 081234567890">
+        <div class="wa-actions">
+          <button id="waBackBtn" class="btn-small">Kembali</button>
+          <button id="waSaveSetupBtn" class="btn-small btn-primary">Simpan &amp; Kirim Tes</button>
+        </div>
+      </div>
+
+      <div id="waReady" style="display: none;">
+        <div id="waView" class="alarm-view"></div>
+        <div id="waEdit" class="wa-edit">
+          <div id="waTimes" class="alarm-times">
+            <button id="waAddTimeBtn" class="alarm-add-time">+ Jam</button>
+          </div>
+          <input type="text" id="waServerUrl" placeholder="Alamat server (opsional), berakhiran /exec">
+          <button id="waResetBtn" class="link-btn" type="button">Atur ulang dari awal</button>
+        </div>
+        <div class="wa-actions">
+          <button id="waTestBtn" class="btn-small">Tes Kirim</button>
+          <button id="waToggleBtn" class="btn-small btn-primary">Edit</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

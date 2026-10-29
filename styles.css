@@ -1,0 +1,256 @@
+body {
+  width: 320px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f8f9fa;
+}
+.header {
+  background-color: #4285f4;
+  color: white;
+  padding: 10px 15px;
+  text-align: center;
+}
+.header h3 { margin: 0; font-size: 16px; }
+.container { padding: 15px; }
+label {
+  display: block;
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #333;
+}
+input {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+.button-group, .action-group { margin-top: 10px; }
+button {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+button:disabled { background-color: #ccc; cursor: not-allowed; }
+.btn-primary { background-color: #34a853; color: white; }
+.btn-primary:hover:not(:disabled) { background-color: #2b8c45; }
+.btn-secondary { background-color: #fbbc05; color: #333; }
+.btn-secondary:hover:not(:disabled) { background-color: #e0a800; }
+.status-box {
+  margin-top: 15px;
+  padding: 10px;
+  font-size: 12px;
+  border-radius: 4px;
+  text-align: center;
+  background-color: #e9ecef;
+}
+.success { background-color: #d4edda; color: #155724; }
+.error { background-color: #f8d7da; color: #721c24; }
+.info { background-color: #d1ecf1; color: #0c5460; }
+hr { border: 0; border-top: 1px solid #ddd; margin: 15px 0; }
+textarea {
+  display: block;
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 13px;
+  resize: none;
+  overflow: hidden;
+}
+
+/* Pengaturan alarm */
+.reminder-group {
+  background: #f0f8ff;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #b3d7ff;
+}
+.reminder-group input[type="checkbox"] { width: auto; padding: 0; margin: 0; }
+.alarm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.alarm-title { color: #004085; margin: 0; }
+.alarm-header select {
+  padding: 2px 4px;
+  font-size: 11px;
+  border: 1px solid #b3d7ff;
+  border-radius: 4px;
+}
+.alarm-view { font-size: 12px; color: #333; margin-bottom: 6px; white-space: pre-line; line-height: 1.5; }
+#alarmEdit { margin-bottom: 8px; }
+.alarm-times { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 5px; }
+.alarm-time {
+  display: flex;
+  align-items: center;
+  background: white;
+  border: 1px solid #b3d7ff;
+  border-radius: 4px;
+}
+.alarm-time input[type="time"] {
+  width: auto;
+  margin: 0;
+  padding: 2px 0 2px 4px;
+  border: none;
+  background: none;
+  font-size: 12px;
+}
+.alarm-time button {
+  width: auto;
+  padding: 0 5px;
+  background: none;
+  color: #721c24;
+  font-size: 10px;
+}
+.alarm-add-time {
+  width: auto;
+  padding: 2px 8px;
+  font-size: 11px;
+  background: none;
+  border: 1px dashed #7fb2ee;
+  color: #004085;
+}
+.alarm-days { display: flex; align-items: center; justify-content: space-between; }
+.alarm-days label {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  font-weight: normal;
+  margin: 0;
+  cursor: pointer;
+}
+.btn-small { padding: 5px; font-size: 11px; }
+
+/* Panduan API Key */
+.label-with-help { display: flex; align-items: center; gap: 6px; }
+.help-icon {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border-radius: 50%;
+  background-color: #4285f4;
+  color: white;
+  font-size: 11px;
+  line-height: 16px;
+}
+.help-box {
+  background: #fff8e1;
+  border: 1px solid #ffe08a;
+  border-radius: 4px;
+  padding: 8px;
+  margin-bottom: 10px;
+  font-size: 11px;
+  color: #333;
+  line-height: 1.5;
+}
+.help-box ol { margin: 4px 0; padding-left: 18px; }
+
+/* Status absen hari ini */
+.absen-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #555;
+  margin-bottom: 6px;
+}
+.absen-done { color: #155724; font-weight: bold; }
+.link-btn {
+  width: auto;
+  padding: 0;
+  background: none;
+  color: #1a73e8;
+  font-size: 11px;
+  font-weight: normal;
+  text-decoration: underline;
+}
+
+/* Pengingat WhatsApp */
+.wa-group { margin-top: 10px; background: #effaf3; border-color: #b7e4c7; }
+.wa-edit select, .wa-edit input[type="text"], .wa-edit input[type="password"] {
+  width: 100%;
+  padding: 5px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+.wa-time-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: normal;
+  margin-bottom: 6px;
+}
+.wa-time-label input[type="time"] { width: auto; margin: 0; padding: 2px 4px; font-size: 12px; }
+.wa-actions { display: flex; gap: 4px; }
+
+/* Panel pengaturan Gemini yang bisa dilipat */
+.settings-panel {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0 10px;
+}
+.settings-panel[open] { padding-bottom: 10px; }
+.settings-panel summary {
+  cursor: pointer;
+  padding: 8px 0;
+  font-size: 12px;
+  font-weight: bold;
+  color: #333;
+}
+.settings-panel[open] summary { margin-bottom: 6px; border-bottom: 1px solid #eee; }
+.settings-state { float: right; font-weight: normal; font-size: 11px; color: #666; }
+.settings-state.ok { color: #155724; }
+#waEdit { margin-bottom: 6px; }
+#waResetBtn { margin-top: 2px; color: #a94442; }
+.wa-step-title { font-size: 11px; color: #555; margin-bottom: 6px; }
+
+/* Tombol refresh di samping judul Pengaturan Gemini API */
+.refresh-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin-left: 4px;
+  border-radius: 50%;
+  background-color: #e8f0fe;
+  color: #1a73e8;
+  font-size: 13px;
+  line-height: 20px;
+  vertical-align: middle;
+}
+.refresh-btn:hover { background-color: #d2e3fc; }
+
+/* Loading bar proses AI */
+.progress-wrap { margin-top: 6px; }
+.progress-track {
+  height: 6px;
+  background: #e8eaed;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.progress-bar {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #4285f4, #34a853);
+  border-radius: 3px;
+  transition: width 0.2s linear;
+}
+.progress-text { margin-top: 3px; font-size: 10px; color: #666; text-align: right; }
