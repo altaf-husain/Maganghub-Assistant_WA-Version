@@ -46,7 +46,7 @@ Pemasangan cukup sekali, sekitar 5–10 menit.
    supaya ikonnya selalu terlihat.
 
 💡 Kalau muncul tulisan *"Manifest file is missing"*, berarti folder yang dipilih salah.
-Buka folder sampai kamu melihat file bernama **manifest.json**, lalu pilih folder itu.
+Buka folder sampai kamu melihat file bernama **manifest.json**, lalu pilih folder itu. Jangan sampai file code ada di folder dalam folder pastikan folder tidak double
 
 ### 3. Buat kunci AI (gratis)
 
