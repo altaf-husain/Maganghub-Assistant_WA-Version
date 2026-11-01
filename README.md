@@ -4,56 +4,23 @@ Ekstensi Chrome (Manifest V3) untuk membantu peserta magang mengisi **laporan ha
 (monev.maganghub.kemnaker.go.id) dengan **Google Gemini API**, ditambah **pengingat WhatsApp** lewat
 **Fonnte API** memakai device milik sendiri.
 
-- ✍️ **Auto-fill laporan dengan AI.** Gemini API menyusun field **Uraian aktivitas**, **Pembelajaran**, dan
+- **Auto-fill laporan dengan AI.** Gemini API menyusun field **Uraian aktivitas**, **Pembelajaran**, dan
   **Kendala**, lalu content script mengisinya ke form MagangHub.
-- ⏰ **Alarm Otomatis.** Notifikasi Chrome pada jam dan hari yang diatur, jika belum absen.
-- 💬 **Pengingat WhatsApp.** Pesan dikirim lewat Fonnte API dari **device (nomor bot) milikmu** ke nomor penerima.
+- **Alarm Otomatis.** Notifikasi Chrome pada jam dan hari yang diatur, jika belum absen.
+- **Pengingat WhatsApp.** Pesan dikirim lewat Fonnte API dari **device (nomor bot) milikmu** ke nomor penerima.
   Bisa dikirim langsung dari ekstensi, atau dari **Google Apps Script Web App** milikmu sendiri agar tetap jalan
   walau laptop mati.
 
 Semua konfigurasi dilakukan sendiri oleh pengguna: Gemini API key, akun & device Fonnte, dan (opsional) deployment
 Apps Script. Tidak ada backend, token, atau nomor dari pembuat ekstensi.
 
-> ⚠️ Proyek pribadi, **bukan** aplikasi resmi Kemnaker/MagangHub. Fonnte juga bukan WhatsApp Business API resmi;
+> Proyek pribadi, **bukan** aplikasi resmi Kemnaker/MagangHub. Fonnte juga bukan WhatsApp Business API resmi;
 > gunakan secukupnya untuk pengingat pribadi.
 
 > Tidak butuh WhatsApp? Pakai **versi standar** di root repositori.
 
----
-
-## Arsitektur
-
-Pengingat WhatsApp punya dua mode:
-
-| Mode | Pengirim pesan | Kelebihan | Kekurangan |
-|---|---|---|---|
-| **Lokal** (default) | Service worker ekstensi memanggil `api.fonnte.com/send` saat alarm `wa_HH:MM` berbunyi | Tanpa setup tambahan | Hanya jalan saat Chrome berjalan |
-| **Server** (opsional) | Google Apps Script dengan time-driven trigger tiap 15 menit | Jalan walau laptop mati; mendukung balasan WA via webhook | Perlu deploy Web App sendiri |
-
-Dibutuhkan **dua nomor WhatsApp**:
-
-| Nomor | Peran |
-|---|---|
-| **Nomor device (bot)** | Ditautkan ke Fonnte sebagai *device*; menjadi pengirim pesan. Gunakan nomor cadangan. |
-| **Nomor penerima (target)** | Nomor WhatsApp yang menerima pengingat. Sebaiknya berbeda dari nomor device, karena pesan ke diri sendiri tidak memunculkan notifikasi. |
-
-Alur mode server:
-
-```
-Ekstensi ──(GET ?action=connect&token&phone)──► Apps Script Web App ──► simpan CONFIG di Script Properties
-                                                   │                      + buat key akses + pasang trigger
-Ekstensi ──(GET ?action=settings|done|undo|status|test&key)──►│
-                                                   ▼
-                                       trigger checkReminder (15 menit)
-                                                   │ belum absen & lewat jam
-                                                   ▼
-                                       api.fonnte.com/send ──► WhatsApp penerima
-                                                   ▲
-Balasan WA ("sudah"/"batal"/"status") ──► Fonnte webhook ──► doPost Web App
-```
-
 ## Struktur folder
-
+Struktur folder adalah hal yang paling penting jika kalian tidak memindahkan semua file kode ke folder pertama maka akan error pastikan folder tidak double karena extension ini tidak bisa membaca folder dalam folder
 ```
 versi-whatsapp-fonnte/
 ├── manifest.json            # Manifest V3; host_permissions: Gemini, Fonnte, Apps Script
@@ -64,18 +31,6 @@ versi-whatsapp-fonnte/
 ├── icon.png
 └── server-pengingat/
     └── Code.gs              # Google Apps Script (opsional), server pengingat pribadi
-```
-
-## Permissions
-
-| Permission | Dipakai untuk |
-|---|---|
-| `storage` | Menyimpan API key, token Fonnte, nomor, jadwal, dan status di `chrome.storage.local` |
-| `activeTab`, `scripting` | Menyuntikkan ulang `content.js` ke tab MagangHub |
-| `alarms`, `notifications` | Alarm harian (`alarm_HH:MM`, `wa_HH:MM`) dan notifikasi |
-| `https://generativelanguage.googleapis.com/*` | Gemini API |
-| `https://api.fonnte.com/*` | Fonnte API (`/device`, `/send`) |
-| `https://script.google.com/*`, `https://script.googleusercontent.com/*` | Request ke Apps Script Web App (redirect ke googleusercontent) |
 
 ---
 
